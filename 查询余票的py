@@ -1,0 +1,430 @@
+#travel_date = '2023-06-29'
+#from_station= 'ZZF'
+#end_station = 'ZEK'
+
+import requests
+import json
+
+import datetime
+
+while True:
+    travel_date = input("查询日期(例如:2023-06-25): ")
+    try:
+        datetime.datetime.strptime(travel_date, '%Y-%m-%d')
+        break
+    except ValueError:
+        print('日期格式错误，请重新输入。')
+
+print(f'你输入的日期为：{travel_date}')
+
+
+
+
+
+
+
+
+def convert_station_code(from_station_input, city_dict_cn):
+    for station in city_dict_cn:
+        if from_station_input == station["Station_cn"]:
+            return station["Station_code"]
+    return None  # Return None if the input doesn't match any Station_cn value in city_dict
+
+# Example usage
+import json
+f = open('stationcodedict.json', mode='r', encoding='utf-8')
+text = f.read()
+city_dict_1 = json.loads(text)
+
+
+from_station_input = input("请输入一个起始点: ")
+from_station = convert_station_code(from_station_input, city_dict_1)
+
+if from_station is not None:
+    print(f"{from_station_input} 对应的车站编码为 {from_station} 但会搜索该城市所有车站的出发车次")
+else:
+    print(f"{from_station} 不在城市列表中，请重新输入。")
+
+end_station_input = input("请输入一个终点: ")
+end_station = convert_station_code(end_station_input, city_dict_1)
+
+if end_station is not None:
+    print(f"{end_station_input} 对应的车站编码为 {end_station} 但会搜索该城市所有到达站的车次")
+else:
+    print(f"{end_station} 不在城市列表中，请重新输入。")
+
+url1 = f'https://kyfw.12306.cn/otn/leftTicket/query?leftTicketDTO.train_date={travel_date}&leftTicketDTO.from_station={from_station}&leftTicketDTO.to_station={end_station}&purpose_codes=ADULT'
+
+#url1 = f'https://kyfw.12306.cn/otn/leftTicket/query?leftTicketDTO.train_date=2023-06-28&leftTicketDTO.from_station=ZZF&leftTicketDTO.to_station=ZEK&purpose_codes=ADULT'
+#print(url1)
+
+#目前是获取起始站+车次的组合
+#目的是获得所有车次
+
+print(f'正在查询，获取两地车次, 车次的基本信息:起始站,到达站,起始时间,到达时间,耗时,余票情况')
+
+
+#import requests
+
+def query():
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36',
+              'Cookie': '_uab_collina=1168637532894471088738532 JSESSIONID=4E8CC416EF860E089EAF711D2F2E6BFF; BIGipServerotn= 1373176074.50210.0000; BIGipServerpassport= 820510986.50215.0000; guidesStatus=off; highContrastMode=defaltMode; cursorStatus=off; fo=undefined; route=c5c62a339e7744272a54643b3be5bf64; _jc_save_wfdc_flag=dc; RAIL_EXPIRATION=1638084218471; RAIL_DEVICEID=GjoD0SgmuOrn8I5Th6sUW3ladtrYirj_WuUcpoeRWAOdZLc63TmPOpT1z1CkycXEQYSSIJSyipw1YGROKouZDXPDwH5rr_S0Dctws6kdtfdau9QTrufBKnxOwEWaGsS0L8y3sluymB5TlCqIAWN3nNP-jxbLyUgg; _jc_save_fromDate=2023-06-11; _jc_save_toDate=2023-06-10; _jc_save_fromStation=%u90D1%u5DDE%2CZZF; _jc_save_toStation=%u4E0A%u6D77%2CSHH',
+            'Host':'kyfw.12306.cn'} 
+    url = url1
+    response = requests.get(url, headers=headers)
+    # print(response.content.decode('utf-8'))
+    # print(response.json()['data']['result'])  
+    return response.json()['data']['result']
+
+#解析数据,只提取 G 或者 D 开头的
+#print('车次','起始时间','到达时间','耗时','商务座','一等座','二等座')
+
+
+trainNumber_no=[]
+outputtrainNumber=()
+outputstart_station_under=()
+departureTime=()
+arriveTime=()
+duration=()
+yidengzuo=()
+erdengzuo=()
+outputtrainNumber_station={}
+alloutputtrainNumber_station=[]
+
+for i in query():
+    li = i.split('|') 
+    #print(li[3])
+
+    if li[3].startswith('D') or li[3].startswith('G'):
+        #print(li[3], li[8],li[9],li[10],li[32],li[31],li[30])
+        trainNumber_no.append(li[3])
+        outputtrainNumber=(li[3])
+        outputstart_station_under=(li[6])
+        outputarrive_station_under=(li[7])
+        departureTime=(li[8])
+        arriveTime=(li[9])
+        duration=(li[10])
+        yidengzuo=(li[31])
+        erdengzuo=(li[30])
+    
+
+        # 根据示例数据创建 outputtrainNumber 字典
+        outputtrainNumber_station = {
+            'trainNumber': outputtrainNumber,
+            'Start_station_under': outputstart_station_under,
+            'Output_arrive_station_under':outputarrive_station_under,
+            'departuretime': departureTime,
+            'arrivetime':arriveTime,
+            'duration':duration,
+            'yidengzuo':yidengzuo,
+            'erdengzuo':erdengzuo
+
+        }
+        #print(outputtrainNumber_station)
+        alloutputtrainNumber_station.append(outputtrainNumber_station)
+#print(alloutputtrainNumber_station)
+
+num_elements = len(trainNumber_no)
+print(f'查询到{travel_date}一共有 {num_elements} 车次从{from_station_input}到{end_station_input}')
+#print("所有从" +"的不重复的车次")
+unique_list = list(set(trainNumber_no))
+print(unique_list)
+#print('正在汇总车次 以及 起始站 到达站 出发时间 离开时间 耗时信息. 注意存在同一车次,起始站不同的情况')
+#print(alloutputtrainNumber_station)
+#这里面是有重复车次的
+#{'trainNumber': 'G1801', 'Start_station_under': 'ZAF', 'Output_arrive_station_under': 'AOH'}
+#{'trainNumber': 'G1914', 'Start_station_under': 'ZAF', 'Output_arrive_station_under': 'AOH'}
+#{'trainNumber': 'G1812', 'Start ZZF
+#{'trainNumber': 'G1812', 'Start ZAF
+
+#['G1828', 'G1478', 'G1824', 'G1808', 'G2614', 'G1868', 'G370', 'G3298', 'G1955', 'G1918', 'G3286', 'G1972', 'G3134', 'G3166', 'G362', 'G1820', 'G1816', 'G1534', 'G3182', 'G3290', 'G2811', 'G1976', 'G3172', 'G3146', 'G1938', 'G3154', 'G1922', 'G1988', 'G2618', 'G1950', 'G1801', 'G1914', 'G1926', 'G1942', 'G1951', 'G3251', 'G3294', 'G3282', 'G1812']
+
+
+
+#合并一下
+
+#checi_no_list=['G1808', 'G1816', 'G3166', 'G3290']
+alldict_B = []
+for checi in unique_list:
+
+    baselink = f"https://trains.ctrip.com/trainbooking/TrainSchedule/{checi}/?allianceID=949992&sid=3327251"
+    #print(baselink)
+
+    import requests
+
+    headers = {
+        'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36',
+        'Host': 'trains.ctrip.com'
+        }
+    link = baselink
+    r = requests.get(link, headers=headers, timeout= 10)
+    #print (r.text)
+
+    start_index = r.text.find('{"trainNumber"')
+    end_index = r.text.find('"distanceFromStart":0}]') + len('"distanceFromStart":0}]}')
+    substring = r.text[start_index:end_index]
+    #print(substring)
+#一个用途,所有的途径站.
+    #import json
+
+    dict_A = {}
+    dict_B = {}
+    dict_B_list =[]
+    def string_to_dict(string):
+        try:
+            dictionary = json.loads(string)
+            return dictionary
+        except json.JSONDecodeError as e:
+            print(f"解析错误: {e}")
+            return None
+    dict_A = string_to_dict(substring)
+
+    #print("打印dict_A") 
+    #print(dict_A) 
+ #dict_A {'trainNumber': 'G1808', 'trainStopList': [{'stationSequence': 1, 'stationName': '郑州东', 'departureTime': '10:01', 'arrivalTime': '----', 'stopTimes': 0, 'distanceFromStart': 0}, {'stationSequence': 2, 'stationName': '商丘', 'departureTime': '10:52', 'arrivalTime': '10:50', 'stopTimes': 2, 'distanceFromStart': 0}, {'stationSequence': 3, 'stationName': '徐州东', 'departureTime': '11:43', 'arrivalTime': '11:37', 'stopTimes': 6, 'distanceFromStart': 0}  
+    dict_B['trainNumber'] = dict_A['trainNumber']
+    dict_B['trainStopList'] =[stop['stationName'] for stop in dict_A['trainStopList']]
+    #print(dict_B)
+    alldict_B.append(dict_B)
+#print(alldict_B)
+print(f'开始查询每个起始站到途径站点的余票')
+#print(alldict_B)
+#{'trainNumber': 'G3166', 'trainStopList': ['LAJ', 'DNJ', 'TWJ', 'TIJ', 'BBY', 'YEY', 'EAY', 'HDY', 'LLF', 'ZAF', 'SQF', 'TDU', 'FXU', 'HNU', 'SQH', 'HFH', 'NKH', 'ZJH', 'DYH', 'CZH', 'WXH', 'SZH', 'KNH', 'AOH']}
+#{'trainNumber': 'G1808', 'trainStopList': ['ZAF', 'SQF', 'UUH', 'CXH', 'NKH', 'ESH', 'WGH', 'KNH', 'AOH']}
+#{'trainNumber': 'G1816', 'trainStopList': ['ADF', 'HFF', 'EGF', 'ZAF', 'LUF', 'SQF', 'PRH', 'UUH', 'BMH', 'NKH', 'ZEH', 'WGH', 'OHH', 'AOH']}
+
+#import json
+f = open('stationcodedict.json', mode='r', encoding='utf-8')
+text = f.read()
+city_dict_1 = json.loads(text)
+    #print(city_dict)
+
+def replace_trainStopList(alldict_B, city_dict_1):
+    # 遍历 alldict_B 中每个字典，对其 trainStopList 进行替换操作
+    for d in alldict_B:
+        # 遍历 trainStopList 中每个城市名称，查找是否存在于 city_dict_1 的 Station_cn 字段中
+        for i in range(len(d['trainStopList'])):
+            station_cn = d['trainStopList'][i]
+            matched_stations = [s for s in city_dict_1 if s['Station_cn'] == station_cn]
+            if len(matched_stations) > 0:
+                # 如果匹配到了站点，则将 trainStopList 对应元素替换为该站点的 Station_code 值
+                d['trainStopList'][i] = matched_stations[0]['Station_code']
+    
+    return alldict_B
+
+alldict_B_code = replace_trainStopList(alldict_B, city_dict_1)
+#print(alldict_B_code)
+
+for train in alloutputtrainNumber_station:
+    for code in alldict_B_code:
+        if code['trainNumber'] == train['trainNumber']:
+            start_index = code['trainStopList'].index(train['Start_station_under']) + 1
+            end_index = code['trainStopList'].index(train['Output_arrive_station_under']) + 1
+            stop_list = code["trainStopList"][start_index:end_index]
+            train["Train_stop_list"] = stop_list
+            break
+
+# 输出结果. 后续新增一个序号,一个leftticket就行. 用来给外面看的table的行数好了.
+#print(alloutputtrainNumber_station)
+
+Samestartstation = []
+for train in alloutputtrainNumber_station:
+    same_start_station = None
+    for station in Samestartstation:
+        if train['Start_station_under'] == station['Start_station_under']:
+            same_start_station = station
+            break
+    if same_start_station is None:
+        same_start_station = {
+            'Start_station_under': train['Start_station_under'],
+            'Train_stop_list': [],
+            'trainNumber': []
+        }
+        Samestartstation.append(same_start_station)
+    same_start_station['Train_stop_list'] += train['Train_stop_list']
+    same_start_station['trainNumber'].append(train['trainNumber'])
+
+for station in Samestartstation:
+    station['Train_stop_list'] = list(set(station['Train_stop_list']))
+
+#print(Samestartstation)
+
+dictionary_A = {}
+tickettostop = []
+#import requests
+import time
+import random
+
+j=0
+
+for item in Samestartstation:
+
+    start_station = item['Start_station_under']
+    stop_list = item['Train_stop_list']
+    
+
+    cookie = "_uab_collina=168637532894471088738532; JSESSIONID=3B1664F9EFEC6054BD872921864549B9; BIGipServerotn=1994916106.24610.0000; RAIL_EXPIRATION=1624775618686; RAIL_DEVICEID=rK1N26rkjeEQyLccR-mNLg3VxH0a9maG-KWLbrvx_NcoRN24nndiPGbLUq9_WCIgurdTMipo7-0glBTnodSVIfGlIJ1NNNfBlIyq8czcR_YQcnG8YWMfC01Z9Bd_Za9-SfnOgwRPc0Sa_CNWeUcUBk-qc65rPRZQ; BIGipServerpool_passport=65274378.50215.0000; route=6f50b51faa11b987e576cdb301e545c4; _jc_save_toStation=%u4E0A%u6D77%2CSHH; _jc_save_fromDate=2023-06-21; _jc_save_toDate=2021-06-20; _jc_save_wfdc_flag=dc; _jc_save_fromStation=%u676D%u5DDE%2CHZH"
+    header = {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.25 Safari/537.36 Core/1.70.3870.400 QQBrowser/10.8.4405.400',
+                        'Connection': 'keep-alive',
+                        'accept': '*/*',
+                        'Cookie': cookie
+                    }
+ 
+
+    for stop in stop_list:  
+        
+        while True:
+            try:
+                urlleft = f"https://kyfw.12306.cn/otn/leftTicket/query?leftTicketDTO.train_date={travel_date}&leftTicketDTO.from_station={start_station}&leftTicketDTO.to_station={stop}&purpose_codes=ADULT"
+                #print(urlleft)
+                j=j+1 
+                def query():
+                    response = requests.get(urlleft, headers=header)                               
+                    #print(response.content.decode('utf-8'))
+                    #print(response.json()['data']['result'])  
+                    return response.json()['data']['result']
+
+                for i in query():
+                    li = i.split('|') 
+                        #如果li[3] 在 unique_checi 中, 则生成一个字典, 字典的键为Checi,值为li[3],字典的另一个键为left,值为li[32]
+                            #print(li[3],li[31])
+                        #print(li[3])、
+
+                    if li[3] in unique_list:
+                        trainNumber = ()
+                        Start_station_under=()
+                        trainStopList= ()
+                        leftticket=()
+                        trainNumber=(li[3])
+                        Start_station_under=(li[6])
+                        trainStopList= stop
+                        lefttickets=(li[30])
+                        dictionary_A = {
+                        'trainNumber': trainNumber,
+                        'Start_station_under': Start_station_under,
+                        'trainStopList': trainStopList,
+                        'lefttickets': lefttickets}
+                        tickettostop.append(dictionary_A)
+                        #print(dictionary_A)
+
+                break  # 如果JSON解析成功，跳出循环
+            except Exception as e:  # 如果JSON解析失败，捕获异常
+                #print(f"JSON解析错误，5秒后重试。错误信息：{e}")
+                sleep_time = random.uniform(0.05, 0.3)  # 生成一个在0.05和0.3之间的随机浮点数
+                time.sleep(sleep_time)
+                 # 等待5秒
+
+print("共计查询"+str(j)+"次,不同车次,不同起始站,不同途径站的余票已查询完毕,开始进行整理汇总")
+
+#目前看起来ZZF的虽然构建了链接查询了,但是没有被装进字典里面,是因为append到ticktostop的位置放的太浅了.以至于漏掉了吧
+#print(tickettostop)
+
+#tickettostop中有重复的字典,由于12306的不精准查询导致的.
+def remove_duplicates(C):
+    unique_dicts = []
+    for dict in C:
+        if dict not in unique_dicts:
+            unique_dicts.append(dict)
+    return unique_dicts
+
+tickettostop = remove_duplicates(tickettostop)
+#print("再看一下tickettostop")
+#print(tickettostop)
+
+def transform_C_to_C1(C):
+    C1 = []
+    for c in C:
+        new_stop_list = []
+        for i, stop in enumerate(c['Train_stop_list']):
+            # 新建一个字典表示每个站点的信息，包括顺序、名称和余票数量
+            new_stop_dict = {'sequence': i+1, 'trainStopList': stop, 'Leftticket': 0}
+            new_stop_list.append(new_stop_dict)
+        
+        # 将新的站点信息列表替换原来的 trainStopList 键对应的值
+        c['Train_stop_list'] = new_stop_list
+        
+        # 将处理后的字典添加到新列表中
+        C1.append(c)  
+    return C1
+
+C1 = transform_C_to_C1(alloutputtrainNumber_station)
+#print(C1)
+
+
+################### 把余票补上
+for c1_train in C1:
+    for ticket in tickettostop:
+        if c1_train['trainNumber'] == ticket['trainNumber'] and c1_train['Start_station_under'] == ticket['Start_station_under']:
+            for stop in c1_train['Train_stop_list']:
+                if stop['trainStopList'] == ticket['trainStopList']:
+                    stop['Leftticket'] = ticket['lefttickets']
+
+print(f'正在把余票填充进去')
+#print(C1)
+
+
+
+f = open('stationcodedict.json', mode='r', encoding='utf-8')
+text = f.read()
+city_dict_1 = json.loads(text)
+    #print(city_dict)## 把C1的'Star
+
+for train in C1:
+    for key, value in train.items():
+        if key == 'Start_station_under' or key == 'Output_arrive_station_under':
+            for station in city_dict_1:
+                if value == station['Station_code']:
+                    train[key] = station['Station_cn']
+        elif key == 'Train_stop_list':
+            for stop in value:
+                for station in city_dict_1:
+                    if stop['trainStopList'] == station['Station_code']:
+                        stop['trainStopList'] = station['Station_cn']
+#print(C1)
+
+for train in C1:
+    for stop in train['Train_stop_list']:
+        if isinstance(stop['Leftticket'], int):
+            stop['Leftticket'] = str(stop['Leftticket'])
+        stop['trainStopList'] = f"{stop['trainStopList']}({stop['Leftticket']})"
+        
+    # Concatenate all the values from 'trainStopList' together into one string
+    concatenated_stops = ' '.join([f"{str(stop.get('trainStopList', ''))}" for stop in train.get('Train_stop_list', [])])
+    
+    # Update the value of 'C1'
+    train.update({'Train_stop_list': concatenated_stops})
+#print(C1)
+
+
+
+import prettytable
+from textwrap import fill
+
+table = prettytable.PrettyTable(hrules=prettytable.ALL)
+table.field_names = ["车次", "起始站", "终点站", "出发时间", "到达时间", "时长", "一等座", "二等座", "途径二等座的余票"]
+
+#C1 = [{'trainNumber': 'G7540', 'trainStopList': '上海虹桥(有) 太仓(有) 张家港(有) 南通西(有) 如皋南(有) 东台(有) 盐城(有) 射阳(有) 响水县(有) 连云港(有)', 'Start_station_under': '海宁西', 'Output_arrive_station_under': '盐城', 'departuretime': '12:19', 'arrivetime': '15:13', 'duration': '02:54', 'yidengzuo': '无', 'erdengzuo': '有'}, {'trainNumber': 'G7524', 'trainStopList': '嘉兴南(有) 金山北(15) 松江南(15) 上海虹桥(12) 常熟(有) 张家港(有) 盐城(有) 阜宁东(有) 响水县(有) 连云港(有)', 'Start_station_under': '海宁西', 'Output_arrive_station_under': '盐城', 'departuretime': '09:47', 'arrivetime': '12:42', 'duration': '02:55', 'yidengzuo': '无', 'erdengzuo': '有'}]
+
+for dictionary in C1:
+    trainNumber = dictionary['trainNumber']
+    start_station_under = dictionary['Start_station_under']
+    output_arrive_station_under = dictionary['Output_arrive_station_under']
+    departureTime = dictionary['departuretime']
+    arriveTime = dictionary['arrivetime']
+    duration = dictionary['duration']
+    yidengzuo = dictionary['yidengzuo']
+    erdengzuo = dictionary['erdengzuo']
+    # 将 trainStopList 转化为字符串，并使用 fill() 进行换行处理
+    trainStopList_str = str(dictionary["Train_stop_list"])
+    formatted_trainStopList = fill(trainStopList_str, width=50)
+
+    table.add_row([trainNumber, start_station_under, output_arrive_station_under, departureTime, arriveTime, duration, yidengzuo, erdengzuo, formatted_trainStopList])
+
+print(table)
+
+
+
+
+
+
